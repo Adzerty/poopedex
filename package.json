@@ -1,0 +1,13 @@
+{
+  "name": "poopedex",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Poopedex — note les toilettes publiques du monde, attrape-les toutes.",
+  "packageManager": "pnpm@10.3.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "db:migrate": "pnpm --filter @poopedex/api db:migrate"
+  }
+}

@@ -1,0 +1,25 @@
+{
+    email {$ACME_EMAIL}
+}
+
+# PWA — sert le build statique, fallback SPA vers index.html
+{$DOMAIN} {
+    root * /srv/web
+    encode zstd gzip
+
+    @assets path /assets/*
+    header @assets Cache-Control "public, max-age=31536000, immutable"
+
+    # Pas de cache pour le service worker ni le manifeste (PWA)
+    @nocache path /sw.js /service-worker.js /manifest.webmanifest /registerSW.js
+    header @nocache Cache-Control "no-cache"
+
+    try_files {path} /index.html
+    file_server
+}
+
+# API Fastify
+api.{$DOMAIN} {
+    encode zstd gzip
+    reverse_proxy api:3000
+}

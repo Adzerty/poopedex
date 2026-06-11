@@ -1,0 +1,83 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: poopedex
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: poopedex
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poopedex -d poopedex"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api-migrate:
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    image: poopedex-api:latest
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://poopedex:${POSTGRES_PASSWORD}@db:5432/poopedex
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+    command: ["pnpm", "--filter", "@poopedex/api", "db:migrate"]
+
+  api:
+    image: poopedex-api:latest
+    build:
+      context: ..
+      dockerfile: deploy/api.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      api-migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://poopedex:${POSTGRES_PASSWORD}@db:5432/poopedex
+      JWT_SECRET: ${JWT_SECRET}
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+
+  web-build:
+    build:
+      context: ..
+      dockerfile: deploy/web.Dockerfile
+      args:
+        VITE_API_URL: https://api.${DOMAIN}
+    restart: "no"
+    volumes:
+      - web_dist:/out
+    command: ["sh", "-c", "rm -rf /out/* && cp -r /app/web/dist/. /out/ && echo 'web dist published'"]
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - web_dist:/srv/web:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+volumes:
+  db_data:
+  web_dist:
+  caddy_data:
+  caddy_config:
