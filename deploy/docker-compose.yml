@@ -19,6 +19,7 @@ services:
       context: ..
       dockerfile: deploy/api.Dockerfile
     image: poopedex-api:latest
+    pull_policy: build
     restart: "no"
     depends_on:
       db:
@@ -34,6 +35,7 @@ services:
     build:
       context: ..
       dockerfile: deploy/api.Dockerfile
+    pull_policy: build
     restart: unless-stopped
     depends_on:
       db:
