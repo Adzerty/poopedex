@@ -33,6 +33,7 @@ services:
 
   api:
     image: poopedex-api:latest
+    container_name: poopedex-api
     build:
       context: ..
       dockerfile: deploy/api.Dockerfile
@@ -49,6 +50,9 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "3000"
+    networks:
+      - default
+      - edge
 
   web-build:
     build:
@@ -61,26 +65,22 @@ services:
       - web_dist:/out
     command: ["sh", "-c", "rm -rf /out/* && cp -r /app/web/dist/. /out/ && echo 'web dist published'"]
 
-  caddy:
+  # Sert le SPA en interne sur le réseau "edge".
+  # Le Caddy frontal (autre compose) reverse-proxy poopedex-web:80.
+  web:
     image: caddy:2-alpine
+    container_name: poopedex-web
     restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-      - "443:443/udp"
-    environment:
-      DOMAIN: ${DOMAIN}
-      ACME_EMAIL: ${ACME_EMAIL}
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./web.Caddyfile:/etc/caddy/Caddyfile:ro
       - web_dist:/srv/web:ro
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - api
+    networks:
+      - edge
 
 volumes:
   db_data:
   web_dist:
-  caddy_data:
-  caddy_config:
+
+networks:
+  edge:
+    external: true
