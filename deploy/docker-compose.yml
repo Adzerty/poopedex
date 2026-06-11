@@ -9,10 +9,11 @@ services:
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U poopedex -d poopedex"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U poopedex -d poopedex"]
       interval: 5s
       timeout: 5s
-      retries: 20
+      retries: 30
+      start_period: 30s
 
   api-migrate:
     build:
