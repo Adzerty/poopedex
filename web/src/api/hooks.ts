@@ -4,11 +4,14 @@ import type {
   AdminToilet,
   AdminUser,
   CheckinResult,
+  Friend,
+  FriendRequest,
   LeaderboardEntry,
   Profile,
   RatingInput,
   ToiletDetail,
   ToiletSummary,
+  UserLeaderboardEntry,
 } from './types';
 import type { GeoPosition } from '../hooks/useGeolocation';
 import { bboxKey, type BBox } from '../lib/bbox';
@@ -62,6 +65,90 @@ export function useLeaderboard(limit = 50) {
     queryFn: () => api<LeaderboardEntry[]>(`/toilets/leaderboard?limit=${limit}`),
     staleTime: 60_000,
   });
+}
+
+export type LeaderboardScope = 'global' | 'friends';
+
+export function useUsersLeaderboard(scope: LeaderboardScope = 'global', limit = 100) {
+  return useQuery({
+    queryKey: ['users', 'leaderboard', scope, limit],
+    queryFn: () =>
+      api<UserLeaderboardEntry[]>(`/users/leaderboard?limit=${limit}&scope=${scope}`),
+    staleTime: 60_000,
+  });
+}
+
+export function useFriends() {
+  return useQuery({ queryKey: ['friends'], queryFn: () => api<Friend[]>('/friends') });
+}
+
+export function useFriendRequests() {
+  return useQuery({
+    queryKey: ['friends', 'requests'],
+    queryFn: () => api<FriendRequest[]>('/friends/requests'),
+  });
+}
+
+export function useSentFriendRequests() {
+  return useQuery({
+    queryKey: ['friends', 'requests', 'sent'],
+    queryFn: () => api<FriendRequest[]>('/friends/requests/sent'),
+  });
+}
+
+/**
+ * Toutes les mutations d'amitié invalident les mêmes caches : la liste d'amis,
+ * les demandes reçues/envoyées, le leaderboard amis, et — si on connaît la
+ * cible — le profil concerné (qui porte `friendshipStatus`).
+ */
+function useFriendshipMutation<TVars>(
+  fn: (vars: TVars) => Promise<unknown>,
+  getTargetId?: (vars: TVars) => string,
+) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: fn,
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['friends'] });
+      qc.invalidateQueries({ queryKey: ['users', 'leaderboard', 'friends'] });
+      const id = getTargetId?.(vars);
+      if (id) qc.invalidateQueries({ queryKey: ['user', id] });
+    },
+  });
+}
+
+export function useSendFriendRequest() {
+  return useFriendshipMutation(
+    (userId: string) =>
+      api<{ status: 'pending' | 'accepted' }>('/friends/requests', {
+        method: 'POST',
+        body: { userId },
+      }),
+    (userId) => userId,
+  );
+}
+
+export function useAcceptFriendRequest() {
+  return useFriendshipMutation(
+    (userId: string) =>
+      api<void>(`/friends/requests/${userId}/accept`, { method: 'POST' }),
+    (userId) => userId,
+  );
+}
+
+export function useDeclineFriendRequest() {
+  return useFriendshipMutation(
+    (userId: string) =>
+      api<void>(`/friends/requests/${userId}/decline`, { method: 'POST' }),
+    (userId) => userId,
+  );
+}
+
+export function useRemoveFriend() {
+  return useFriendshipMutation(
+    (userId: string) => api<void>(`/friends/${userId}`, { method: 'DELETE' }),
+    (userId) => userId,
+  );
 }
 
 export function useProfile() {

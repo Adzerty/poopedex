@@ -1,0 +1,18 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-00000000aaaa",
+    "username": "alice",
+    "avatarUrl": null,
+    "totalPoints": 1337,
+    "totalPoops": 42,
+    "distinctToilets": 17
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000dddd",
+    "username": "dora",
+    "avatarUrl": null,
+    "totalPoints": 800,
+    "totalPoops": 22,
+    "distinctToilets": 11
+  }
+]

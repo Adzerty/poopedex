@@ -1,0 +1,8 @@
+{
+  "accessToken": "test-access-token-admin",
+  "refreshToken": "test-refresh-token-admin",
+  "user": {
+    "id": "00000000-0000-0000-0000-00000000ffff",
+    "username": "admin"
+  }
+}

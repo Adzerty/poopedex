@@ -1,0 +1,16 @@
+{
+  "poopId": "20000000-0000-0000-0000-000000000002",
+  "newlyCollected": true,
+  "distanceM": 5,
+  "rarityScore": 250,
+  "stats": {
+    "totalPoops": 43,
+    "distinctToilets": 18,
+    "totalRatings": 13,
+    "totalPoints": 1587,
+    "maxRarityScore": 250
+  },
+  "newBadges": [
+    { "code": "rare-find", "name": "Pépite rare" }
+  ]
+}

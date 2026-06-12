@@ -6,6 +6,7 @@ import { BottomNav } from './components/BottomNav';
 import { AdminScreen } from './screens/AdminScreen';
 import { AdminToiletsScreen } from './screens/AdminToiletsScreen';
 import { AdminUsersScreen } from './screens/AdminUsersScreen';
+import { FriendsScreen } from './screens/FriendsScreen';
 import { LeaderboardScreen } from './screens/LeaderboardScreen';
 import { MapScreen } from './screens/MapScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
@@ -56,6 +57,24 @@ export function App() {
         element={
           <>
             <LeaderboardScreen />
+            <BottomNav />
+          </>
+        }
+      />
+      <Route
+        path="/friends"
+        element={
+          <>
+            <FriendsScreen />
+            <BottomNav />
+          </>
+        }
+      />
+      <Route
+        path="/users/:id"
+        element={
+          <>
+            <UserProfileScreen />
             <BottomNav />
           </>
         }

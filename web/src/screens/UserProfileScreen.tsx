@@ -1,10 +1,23 @@
-import { NavLink, useParams } from 'react-router-dom';
-import { useUserProfile } from '../api/hooks';
+import { NavLink, useLocation, useParams } from 'react-router-dom';
+import {
+  useAcceptFriendRequest,
+  useDeclineFriendRequest,
+  useRemoveFriend,
+  useSendFriendRequest,
+  useUserProfile,
+} from '../api/hooks';
+import type { FriendshipStatus } from '../api/types';
 
 // Vue publique d'un profil — réutilisée par l'admin pour consulter n'importe quel user.
 export function UserProfileScreen() {
   const { id } = useParams<{ id: string }>();
+  const { pathname } = useLocation();
   const { data: profile, isLoading, isError } = useUserProfile(id ?? null);
+
+  // Retour contextuel : depuis l'admin → liste users, sinon → classement public.
+  const fromAdmin = pathname.startsWith('/admin');
+  const backTo = fromAdmin ? '/admin/users' : '/leaderboard';
+  const backLabel = fromAdmin ? '← Utilisateurs' : '← Classement';
 
   if (isLoading) {
     return <div className="flex h-dvh items-center justify-center text-gray-400">Chargement…</div>;
@@ -26,8 +39,8 @@ export function UserProfileScreen() {
   return (
     <div className="min-h-dvh bg-amber-50 px-5 pb-24 pt-6">
       <header className="mb-4">
-        <NavLink to="/admin/users" className="text-sm text-amber-700 underline">
-          ← Utilisateurs
+        <NavLink to={backTo} className="text-sm text-amber-700 underline">
+          {backLabel}
         </NavLink>
       </header>
 
@@ -44,6 +57,7 @@ export function UserProfileScreen() {
         <p className="text-xs text-amber-600">
           Membre depuis {new Date(profile.memberSince).toLocaleDateString('fr-FR')}
         </p>
+        <FriendshipAction userId={profile.id} status={profile.friendshipStatus} />
       </div>
 
       <div className="mt-6 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 p-5 text-center text-white shadow-md">
@@ -82,5 +96,82 @@ export function UserProfileScreen() {
         )}
       </section>
     </div>
+  );
+}
+
+function FriendshipAction({
+  userId,
+  status,
+}: {
+  userId: string;
+  status: FriendshipStatus | null;
+}) {
+  const send = useSendFriendRequest();
+  const accept = useAcceptFriendRequest();
+  const decline = useDeclineFriendRequest();
+  const remove = useRemoveFriend();
+
+  // Pas authentifié, ou mon propre profil → aucune action.
+  if (!status || status === 'self') return null;
+
+  const busy =
+    send.isPending || accept.isPending || decline.isPending || remove.isPending;
+
+  if (status === 'none') {
+    return (
+      <button
+        onClick={() => send.mutate(userId)}
+        disabled={busy}
+        className="mt-2 rounded-full bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+      >
+        + Ajouter en ami
+      </button>
+    );
+  }
+
+  if (status === 'pending_outgoing') {
+    return (
+      <button
+        onClick={() => remove.mutate(userId)}
+        disabled={busy}
+        className="mt-2 rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
+      >
+        Demande envoyée — Annuler
+      </button>
+    );
+  }
+
+  if (status === 'pending_incoming') {
+    return (
+      <div className="mt-2 flex gap-2">
+        <button
+          onClick={() => accept.mutate(userId)}
+          disabled={busy}
+          className="rounded-full bg-amber-700 px-4 py-2 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
+        >
+          Accepter
+        </button>
+        <button
+          onClick={() => decline.mutate(userId)}
+          disabled={busy}
+          className="rounded-full bg-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-50"
+        >
+          Refuser
+        </button>
+      </div>
+    );
+  }
+
+  // accepted
+  return (
+    <button
+      onClick={() => {
+        if (confirm('Retirer cet ami ?')) remove.mutate(userId);
+      }}
+      disabled={busy}
+      className="mt-2 rounded-full bg-amber-100 px-4 py-2 text-sm font-semibold text-amber-900 disabled:opacity-50"
+    >
+      ✓ Ami — retirer
+    </button>
   );
 }

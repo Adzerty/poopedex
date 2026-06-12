@@ -1,0 +1,32 @@
+[
+  {
+    "id": "10000000-0000-0000-0000-000000000001",
+    "name": "Toilettes Châtelet",
+    "lat": 48.8585,
+    "lng": 2.3470,
+    "distanceM": 12,
+    "avgOverall": 4.2,
+    "poopsCount": 25,
+    "collected": false
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000002",
+    "name": null,
+    "lat": 48.8590,
+    "lng": 2.3480,
+    "distanceM": 80,
+    "avgOverall": null,
+    "poopsCount": 0,
+    "collected": false
+  },
+  {
+    "id": "10000000-0000-0000-0000-000000000003",
+    "name": "Toilettes Hôtel de Ville",
+    "lat": 48.8576,
+    "lng": 2.3522,
+    "distanceM": 420,
+    "avgOverall": 3.1,
+    "poopsCount": 4,
+    "collected": true
+  }
+]

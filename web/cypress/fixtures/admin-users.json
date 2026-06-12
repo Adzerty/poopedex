@@ -1,0 +1,29 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-00000000ffff",
+    "username": "admin",
+    "email": "admin@poopedex.test",
+    "isAdmin": true,
+    "avatarUrl": null,
+    "createdAt": "2026-01-01T00:00:00.000Z",
+    "poopsCount": 99
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000aaaa",
+    "username": "alice",
+    "email": "alice@poopedex.test",
+    "isAdmin": false,
+    "avatarUrl": null,
+    "createdAt": "2026-01-15T10:00:00.000Z",
+    "poopsCount": 42
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000bbbb",
+    "username": "bob",
+    "email": "bob@poopedex.test",
+    "isAdmin": false,
+    "avatarUrl": null,
+    "createdAt": "2026-02-01T00:00:00.000Z",
+    "poopsCount": 10
+  }
+]

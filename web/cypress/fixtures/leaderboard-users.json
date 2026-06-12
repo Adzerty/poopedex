@@ -1,0 +1,26 @@
+[
+  {
+    "id": "00000000-0000-0000-0000-00000000bbbb",
+    "username": "bob",
+    "avatarUrl": null,
+    "totalPoints": 9001,
+    "totalPoops": 120,
+    "distinctToilets": 60
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000aaaa",
+    "username": "alice",
+    "avatarUrl": null,
+    "totalPoints": 1337,
+    "totalPoops": 42,
+    "distinctToilets": 17
+  },
+  {
+    "id": "00000000-0000-0000-0000-00000000cccc",
+    "username": "charlie",
+    "avatarUrl": null,
+    "totalPoints": 500,
+    "totalPoops": 18,
+    "distinctToilets": 9
+  }
+]

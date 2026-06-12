@@ -71,6 +71,13 @@ export interface Badge {
   unlocked_at: string;
 }
 
+export type FriendshipStatus =
+  | 'none'
+  | 'self'
+  | 'pending_outgoing'
+  | 'pending_incoming'
+  | 'accepted';
+
 export interface Profile {
   id: string;
   username: string;
@@ -79,6 +86,22 @@ export interface Profile {
   isAdmin?: boolean;
   stats: UserStats;
   badges: Badge[];
+  /** `null` quand on lit le profil sans être authentifié. */
+  friendshipStatus: FriendshipStatus | null;
+}
+
+export interface Friend {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  since: string;
+}
+
+export interface FriendRequest {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  requestedAt: string;
 }
 
 export interface AdminToilet {
@@ -105,6 +128,15 @@ export interface LeaderboardEntry {
   avgOverall: number;
   ratingsCount: number;
   poopsCount: number;
+}
+
+export interface UserLeaderboardEntry {
+  id: string;
+  username: string;
+  avatarUrl: string | null;
+  totalPoints: number;
+  totalPoops: number;
+  distinctToilets: number;
 }
 
 export interface AdminUser {

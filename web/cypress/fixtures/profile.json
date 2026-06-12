@@ -1,0 +1,23 @@
+{
+  "id": "00000000-0000-0000-0000-00000000aaaa",
+  "username": "alice",
+  "avatarUrl": null,
+  "memberSince": "2026-01-15T10:00:00.000Z",
+  "stats": {
+    "totalPoops": 42,
+    "distinctToilets": 17,
+    "totalRatings": 12,
+    "totalPoints": 1337,
+    "maxRarityScore": 250
+  },
+  "badges": [
+    {
+      "code": "first-poop",
+      "name": "Premier poop",
+      "description": "Tu as enregistré ton premier poop.",
+      "icon": "🥇",
+      "unlocked_at": "2026-01-15T11:00:00.000Z"
+    }
+  ],
+  "friendshipStatus": "self"
+}

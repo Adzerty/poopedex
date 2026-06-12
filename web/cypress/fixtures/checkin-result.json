@@ -1,0 +1,14 @@
+{
+  "poopId": "20000000-0000-0000-0000-000000000001",
+  "newlyCollected": true,
+  "distanceM": 8,
+  "rarityScore": 12,
+  "stats": {
+    "totalPoops": 43,
+    "distinctToilets": 18,
+    "totalRatings": 13,
+    "totalPoints": 1349,
+    "maxRarityScore": 250
+  },
+  "newBadges": []
+}

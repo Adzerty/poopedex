@@ -1,0 +1,15 @@
+{
+  "id": "00000000-0000-0000-0000-00000000bbbb",
+  "username": "bob",
+  "avatarUrl": null,
+  "memberSince": "2026-02-01T00:00:00.000Z",
+  "stats": {
+    "totalPoops": 10,
+    "distinctToilets": 5,
+    "totalRatings": 3,
+    "totalPoints": 250,
+    "maxRarityScore": 80
+  },
+  "badges": [],
+  "friendshipStatus": "none"
+}
