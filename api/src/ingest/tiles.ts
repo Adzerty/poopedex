@@ -40,7 +40,24 @@ export function coveringTiles(lat: number, lng: number, radiusM: number, z = OSM
   const topLeft = lngLatToTile(lat + degLat, lng - degLng, z);
   const bottomRight = lngLatToTile(lat - degLat, lng + degLng, z);
   const center = lngLatToTile(lat, lng, z);
+  return enumerateAndSort(topLeft, bottomRight, center, z);
+}
 
+/**
+ * Tuiles couvrant une bbox carto, la tuile centrale (au centre de la bbox)
+ * en premier. Même plafond de 16 tuiles : si la bbox est trop grande, on
+ * laisse tomber les bords (les tuiles centrales priment).
+ */
+export function coveringTilesForBBox(bbox: BBox, z = OSM_INGEST_ZOOM): Tile[] {
+  const topLeft = lngLatToTile(bbox.north, bbox.west, z);
+  const bottomRight = lngLatToTile(bbox.south, bbox.east, z);
+  const centerLat = (bbox.north + bbox.south) / 2;
+  const centerLng = (bbox.east + bbox.west) / 2;
+  const center = lngLatToTile(centerLat, centerLng, z);
+  return enumerateAndSort(topLeft, bottomRight, center, z);
+}
+
+function enumerateAndSort(topLeft: Tile, bottomRight: Tile, center: Tile, z: number): Tile[] {
   const tiles: Tile[] = [];
   for (let x = topLeft.x; x <= bottomRight.x; x++) {
     for (let y = topLeft.y; y <= bottomRight.y; y++) {

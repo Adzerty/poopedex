@@ -1,17 +1,24 @@
-import { ADD_TOILET_MIN_DISTANCE_M } from '@poopedex/shared';
+import { ADD_TOILET_MIN_DISTANCE_M, MAP_BBOX_MAX_SPAN_DEG } from '@poopedex/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { uuidv7 } from 'uuidv7';
 import { z } from 'zod';
 import { pool, withTransaction } from '../../db/pool';
-import { Conflict, NotFound, TooManyRequests } from '../../lib/errors';
-import { ensureAreaIngested } from '../../ingest/service';
+import { BadRequest, Conflict, NotFound, TooManyRequests } from '../../lib/errors';
+import { ensureAreaIngested, ensureBBoxIngested } from '../../ingest/service';
 import { isAdmin } from '../../plugins/auth';
 
 const NearbyQuery = z.object({
   lat: z.coerce.number().min(-90).max(90),
   lng: z.coerce.number().min(-180).max(180),
   radius: z.coerce.number().int().min(1).max(5000).default(1000), // mètres
+});
+
+const BBoxQuery = z.object({
+  south: z.coerce.number().min(-90).max(90),
+  west: z.coerce.number().min(-180).max(180),
+  north: z.coerce.number().min(-90).max(90),
+  east: z.coerce.number().min(-180).max(180),
 });
 
 const ToiletSummary = z.object({
@@ -63,6 +70,62 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
          ORDER BY t.location <-> ST_MakePoint($2, $1)::geography
          LIMIT 500`,
         [lat, lng, radius, userId],
+      );
+
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        lat: row.lat,
+        lng: row.lng,
+        distanceM: Math.round(Number(row.distance_m) * 10) / 10,
+        avgOverall: row.avg_overall === null ? null : Number(row.avg_overall),
+        poopsCount: Number(row.poops_count),
+        collected: row.collected,
+      }));
+    },
+  );
+
+  // Toilettes dans une bbox (viewport carto). Auth optionnelle pour `collected`.
+  // Refuse les bbox trop larges (MAP_BBOX_MAX_SPAN_DEG) pour éviter qu'un client
+  // charge « toutes les toilettes de France » d'un coup.
+  r.get(
+    '/bbox',
+    { preHandler: app.optionalAuth, schema: { querystring: BBoxQuery, response: { 200: z.array(ToiletSummary) } } },
+    async (req) => {
+      const { south, west, north, east } = req.query;
+      const userId = req.user?.sub ?? null;
+
+      if (north <= south || east <= west) {
+        throw BadRequest('invalid_bbox', 'BBox invalide (north>south, east>west attendu).');
+      }
+      if (north - south > MAP_BBOX_MAX_SPAN_DEG || east - west > MAP_BBOX_MAX_SPAN_DEG) {
+        throw BadRequest('bbox_too_large', 'Zoome davantage pour charger les toilettes.');
+      }
+
+      const centerLat = (north + south) / 2;
+      const centerLng = (east + west) / 2;
+
+      // Ingestion OSM (tuile centrale attendue, voisines en fond), idempotente.
+      await ensureBBoxIngested({ south, west, north, east }).catch(() => {});
+
+      const { rows } = await pool.query(
+        `SELECT t.id,
+                t.name,
+                ST_Y(t.location::geometry) AS lat,
+                ST_X(t.location::geometry) AS lng,
+                ST_Distance(t.location, ST_MakePoint($6, $5)::geography) AS distance_m,
+                t.avg_overall,
+                t.poops_count,
+                ($7::uuid IS NOT NULL AND EXISTS (
+                   SELECT 1 FROM poops p WHERE p.toilet_id = t.id AND p.user_id = $7
+                )) AS collected
+         FROM toilets t
+         WHERE t.status = 'active'
+           AND t.is_deleted = false
+           AND ST_Intersects(t.location, ST_MakeEnvelope($2, $1, $4, $3, 4326)::geography)
+         ORDER BY t.location <-> ST_MakePoint($6, $5)::geography
+         LIMIT 500`,
+        [south, west, north, east, centerLat, centerLng, userId],
       );
 
       return rows.map((row) => ({

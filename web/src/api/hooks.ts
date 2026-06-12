@@ -9,6 +9,7 @@ import type {
   ToiletSummary,
 } from './types';
 import type { GeoPosition } from '../hooks/useGeolocation';
+import { bboxKey, type BBox } from '../lib/bbox';
 
 export function useNearbyToilets(pos: GeoPosition | null, radius = 1000) {
   return useQuery({
@@ -17,6 +18,30 @@ export function useNearbyToilets(pos: GeoPosition | null, radius = 1000) {
     queryFn: () =>
       api<ToiletSummary[]>(`/toilets?lat=${pos!.lat}&lng=${pos!.lng}&radius=${radius}`),
     staleTime: 30_000,
+  });
+}
+
+/**
+ * Toilettes dans le viewport carto. La bbox doit être pré-snappée sur la grille
+ * de tuiles z=14 (cf. `snapBBoxToTiles`) → un pan qui reste dans la même tuile
+ * produit la même clé de cache et ne refetch pas.
+ *
+ * `enabled` doit être `false` quand le zoom est trop faible (sinon on demanderait
+ * des bbox géantes au serveur).
+ */
+export function useToiletsInBBox(bbox: BBox | null, enabled: boolean) {
+  return useQuery({
+    queryKey: ['toilets', 'bbox', bbox && bboxKey(bbox)],
+    enabled: enabled && !!bbox,
+    queryFn: () => {
+      const b = bbox!;
+      const qs = `south=${b.south}&west=${b.west}&north=${b.north}&east=${b.east}`;
+      return api<ToiletSummary[]>(`/toilets/bbox?${qs}`);
+    },
+    // Les toilettes ne bougent pas en temps réel → on garde la réponse fraîche
+    // 5 min, ça absorbe tous les pans/zooms dans le même secteur sans refetch.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
   });
 }
 

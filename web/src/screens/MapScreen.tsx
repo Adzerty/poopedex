@@ -1,14 +1,16 @@
 import 'maplibre-gl/dist/maplibre-gl.css';
+import { MAP_FETCH_MIN_ZOOM } from '@poopedex/shared';
 import type { Map as MlMap } from 'maplibre-gl';
-import { useEffect, useRef, useState } from 'react';
-import Map, { Marker, type MapRef } from 'react-map-gl/maplibre';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Map, { Marker, type MapRef, type ViewStateChangeEvent } from 'react-map-gl/maplibre';
 import { useSearchParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
-import { useAddToilet, useNearbyToilets } from '../api/hooks';
+import { useAddToilet, useToiletsInBBox } from '../api/hooks';
 import type { CheckinResult, ToiletSummary } from '../api/types';
 import { ToiletMarker } from '../components/ToiletMarker';
 import { ToiletSheet } from '../components/ToiletSheet';
 import { useGeolocation } from '../hooks/useGeolocation';
+import { snapBBoxToTiles, type BBox } from '../lib/bbox';
 
 /**
  * Retire toutes les couches de POI du fond OpenFreeMap (schéma OpenMapTiles :
@@ -34,15 +36,36 @@ export function MapScreen() {
   const targetLng = parseFloat(searchParams.get('lng') ?? '');
   const targetId = searchParams.get('id');
   const hasTarget = Number.isFinite(targetLat) && Number.isFinite(targetLng);
-  // Si une cible est demandée, on cherche les toilettes autour d'elle ; sinon autour de l'user.
-  const queryPos = hasTarget ? { lat: targetLat, lng: targetLng, accuracy: 0 } : position;
-  const { data: toilets } = useNearbyToilets(queryPos, 1500);
   const addToilet = useAddToilet();
   const [selected, setSelected] = useState<ToiletSummary | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const mapRef = useRef<MapRef>(null);
   const centered = useRef(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Bbox du viewport (snapée sur la grille z=14) + zoom courant. Pilote le fetch :
+  // - bbox change uniquement quand on franchit une tuile → cache React Query stable
+  // - zoom < MAP_FETCH_MIN_ZOOM → on n'affiche rien et on ne fetch rien
+  const [viewport, setViewport] = useState<{ bbox: BBox; zoom: number } | null>(null);
+
+  const updateViewport = useCallback((map: MlMap) => {
+    const b = map.getBounds();
+    const bbox = snapBBoxToTiles({
+      south: b.getSouth(),
+      west: b.getWest(),
+      north: b.getNorth(),
+      east: b.getEast(),
+    });
+    setViewport({ bbox, zoom: map.getZoom() });
+  }, []);
+
+  const onMoveEnd = useCallback(
+    (e: ViewStateChangeEvent) => updateViewport(e.target),
+    [updateViewport],
+  );
+
+  const zoomedEnough = (viewport?.zoom ?? 0) >= MAP_FETCH_MIN_ZOOM;
+  const { data: toilets } = useToiletsInBBox(viewport?.bbox ?? null, zoomedEnough);
 
   function showToast(msg: string) {
     setToast(msg);
@@ -101,8 +124,10 @@ export function MapScreen() {
         initialViewState={{ longitude: 2.3522, latitude: 48.8566, zoom: 12 }}
         onLoad={(e) => {
           declutterBaseMap(e.target);
+          updateViewport(e.target);
           setMapLoaded(true);
         }}
+        onMoveEnd={onMoveEnd}
       >
         {/* Position de l'utilisateur */}
         {position && (
@@ -113,8 +138,8 @@ export function MapScreen() {
           </Marker>
         )}
 
-        {/* Toilettes alentour */}
-        {toilets?.map((t) => (
+        {/* Toilettes alentour — masquées si on est trop dézoomé (pas de fetch non plus). */}
+        {zoomedEnough && toilets?.map((t) => (
           <Marker
             key={t.id}
             longitude={t.lng}
@@ -152,6 +177,12 @@ export function MapScreen() {
       {geoError && (
         <div className="absolute left-4 right-4 top-4 z-10 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700 shadow">
           Géolocalisation indisponible : {geoError}
+        </div>
+      )}
+
+      {viewport && !zoomedEnough && (
+        <div className="pointer-events-none absolute bottom-24 left-1/2 z-10 -translate-x-1/2 rounded-full bg-gray-900/80 px-4 py-2 text-xs font-medium text-white shadow">
+          Zoome pour voir les toilettes
         </div>
       )}
 

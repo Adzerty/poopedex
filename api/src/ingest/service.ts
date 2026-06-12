@@ -1,6 +1,6 @@
 import { pool } from '../db/pool';
 import { fetchToilets, type OsmToilet } from './overpass';
-import { coveringTiles, tileToBBox, type Tile } from './tiles';
+import { coveringTiles, coveringTilesForBBox, tileToBBox, type BBox, type Tile } from './tiles';
 
 /** Fraîcheur du cache d'une tuile : on ne re-fetch Overpass qu'au-delà. */
 const TILE_TTL_DAYS = 7;
@@ -87,6 +87,21 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | void> {
  */
 export async function ensureAreaIngested(lat: number, lng: number, radiusM: number): Promise<void> {
   const tiles = coveringTiles(lat, lng, radiusM);
+  if (tiles.length === 0) return;
+
+  const center = tiles[0]!;
+  await withTimeout(ingestTile(center).catch(() => {}), CENTER_INGEST_TIMEOUT_MS);
+  for (const tile of tiles.slice(1)) {
+    void ingestTile(tile).catch(() => {});
+  }
+}
+
+/**
+ * Variante bbox : ingère la tuile centrale (attendue, garde de temps) et lance
+ * le reste en arrière-plan. Utilisée par la requête carte qui passe le viewport.
+ */
+export async function ensureBBoxIngested(bbox: BBox): Promise<void> {
+  const tiles = coveringTilesForBBox(bbox);
   if (tiles.length === 0) return;
 
   const center = tiles[0]!;
