@@ -9,6 +9,32 @@ export interface ToiletSummary {
   collected: boolean;
 }
 
+export interface ToiletFlagsPct {
+  hasSoap: number;
+  hasToiletPaper: number;
+  hasBin: number;
+  hasMenstrualProducts: number;
+  hasBabyChanging: number;
+}
+
+export interface ToiletDetail {
+  id: string;
+  name: string | null;
+  source: 'osm' | 'user';
+  status: string;
+  lat: number;
+  lng: number;
+  poopsCount: number;
+  ratingsCount: number;
+  avgCleanliness: number | null;
+  avgSafety: number | null;
+  avgHygiene: number | null;
+  avgInclusivity: number | null;
+  avgOverall: number | null;
+  lastRatedAt: string | null;
+  flagsPct: ToiletFlagsPct | null;
+}
+
 export interface RatingInput {
   cleanliness: number;
   safety: number;

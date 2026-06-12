@@ -1,8 +1,8 @@
 import { allowedCheckinRadius } from '@poopedex/shared';
 import { useState } from 'react';
 import { ApiError } from '../api/client';
-import { useCheckin, useDeleteToilet, useProfile } from '../api/hooks';
-import type { CheckinResult, RatingInput, ToiletSummary } from '../api/types';
+import { useCheckin, useDeleteToilet, useProfile, useToiletDetail } from '../api/hooks';
+import type { CheckinResult, RatingInput, ToiletDetail, ToiletSummary } from '../api/types';
 import type { GeoPosition } from '../hooks/useGeolocation';
 import { haversineM } from '../lib/geo';
 import { RatingForm } from './RatingForm';
@@ -18,6 +18,7 @@ export function ToiletSheet({ toilet, position, onClose, onCheckedIn }: Props) {
   const checkin = useCheckin();
   const deleteToilet = useDeleteToilet();
   const { data: me } = useProfile();
+  const { data: detail } = useToiletDetail(toilet.id);
   const isAdmin = me?.isAdmin === true;
   const [error, setError] = useState<string | null>(null);
 
@@ -99,6 +100,8 @@ export function ToiletSheet({ toilet, position, onClose, onCheckedIn }: Props) {
           </button>
         )}
 
+        {detail && detail.ratingsCount > 0 && <RatingsBreakdown detail={detail} />}
+
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 
         {inRange ? (
@@ -118,6 +121,73 @@ export function ToiletSheet({ toilet, position, onClose, onCheckedIn }: Props) {
             Rapproche-toi de la toilette pour pouvoir l'enregistrer.
           </p>
         )}
+      </div>
+    </div>
+  );
+}
+
+const FLAG_LABELS: { key: keyof NonNullable<ToiletDetail['flagsPct']>; label: string }[] = [
+  { key: 'hasSoap', label: '🧼 Savon' },
+  { key: 'hasToiletPaper', label: '🧻 Papier' },
+  { key: 'hasBin', label: '🗑️ Poubelle' },
+  { key: 'hasMenstrualProducts', label: '🩸 Protections' },
+  { key: 'hasBabyChanging', label: '🍼 Table à langer' },
+];
+
+function RatingsBreakdown({ detail }: { detail: ToiletDetail }) {
+  return (
+    <div className="mb-4 rounded-2xl border border-gray-100 bg-gray-50 p-4">
+      <div className="mb-3 flex items-baseline justify-between">
+        <h3 className="text-sm font-semibold text-gray-800">Détails des votes</h3>
+        <span className="text-xs text-gray-500">
+          {detail.ratingsCount} vote{detail.ratingsCount > 1 ? 's' : ''}
+        </span>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <ScoreBar label="Note globale" value={detail.avgOverall} accent />
+        <ScoreBar label="Propreté" value={detail.avgCleanliness} />
+        <ScoreBar label="Sécurité" value={detail.avgSafety} />
+        <ScoreBar label="Hygiène" value={detail.avgHygiene} />
+        <ScoreBar label="Inclusivité" value={detail.avgInclusivity} />
+      </div>
+
+      {detail.flagsPct && (
+        <div className="mt-4 border-t border-gray-200 pt-3">
+          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-500">
+            Équipements (% des votants)
+          </p>
+          <ul className="flex flex-col gap-1.5">
+            {FLAG_LABELS.map((f) => (
+              <li key={f.key} className="flex items-center justify-between text-sm">
+                <span className="text-gray-700">{f.label}</span>
+                <span className="font-semibold tabular-nums text-gray-900">
+                  {detail.flagsPct![f.key]}%
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ScoreBar({ label, value, accent }: { label: string; value: number | null; accent?: boolean }) {
+  const pct = value === null ? 0 : (value / 5) * 100;
+  return (
+    <div>
+      <div className="mb-0.5 flex items-baseline justify-between text-sm">
+        <span className={accent ? 'font-semibold text-gray-900' : 'text-gray-700'}>{label}</span>
+        <span className="tabular-nums text-gray-600">
+          {value === null ? '—' : `${value.toFixed(1)}/5`}
+        </span>
+      </div>
+      <div className="h-1.5 w-full overflow-hidden rounded-full bg-gray-200">
+        <div
+          className={`h-full rounded-full ${accent ? 'bg-amber-600' : 'bg-amber-400'}`}
+          style={{ width: `${pct}%` }}
+        />
       </div>
     </div>
   );

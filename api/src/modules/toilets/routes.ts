@@ -196,7 +196,8 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
     },
   );
 
-  // Détail d'une toilette + ses notes récentes.
+  // Détail d'une toilette + agrégats des notes (moyennes par critère et % de
+  // présence de chaque équipement) + 20 dernières notes.
   r.get(
     '/:id',
     { schema: { params: z.object({ id: z.string().uuid() }) } },
@@ -214,6 +215,31 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
       const t = rows[0];
       if (!t) throw NotFound('Toilette introuvable');
 
+      const ratingsCount = Number(t.ratings_count);
+
+      let flagsPct: Record<string, number> | null = null;
+      if (ratingsCount > 0) {
+        const { rows: agg } = await pool.query(
+          `SELECT
+             AVG(CASE WHEN has_soap THEN 1.0 ELSE 0 END)              AS soap,
+             AVG(CASE WHEN has_toilet_paper THEN 1.0 ELSE 0 END)      AS paper,
+             AVG(CASE WHEN has_bin THEN 1.0 ELSE 0 END)               AS bin,
+             AVG(CASE WHEN has_menstrual_products THEN 1.0 ELSE 0 END) AS menstrual,
+             AVG(CASE WHEN has_baby_changing THEN 1.0 ELSE 0 END)     AS baby
+           FROM ratings WHERE toilet_id = $1`,
+          [req.params.id],
+        );
+        const a = agg[0];
+        const pct = (v: unknown) => Math.round(Number(v) * 100);
+        flagsPct = {
+          hasSoap: pct(a.soap),
+          hasToiletPaper: pct(a.paper),
+          hasBin: pct(a.bin),
+          hasMenstrualProducts: pct(a.menstrual),
+          hasBabyChanging: pct(a.baby),
+        };
+      }
+
       const { rows: recent } = await pool.query(
         `SELECT cleanliness, safety, hygiene_score, inclusivity_score, overall_score,
                 has_soap, has_toilet_paper, has_bin, has_menstrual_products, has_baby_changing,
@@ -222,7 +248,26 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
         [req.params.id],
       );
 
-      return { toilet: t, recentRatings: recent };
+      const num = (v: unknown) => (v === null ? null : Number(v));
+
+      return {
+        id: t.id,
+        name: t.name,
+        source: t.source,
+        status: t.status,
+        lat: Number(t.lat),
+        lng: Number(t.lng),
+        poopsCount: Number(t.poops_count),
+        ratingsCount,
+        avgCleanliness: num(t.avg_cleanliness),
+        avgSafety: num(t.avg_safety),
+        avgHygiene: num(t.avg_hygiene),
+        avgInclusivity: num(t.avg_inclusivity),
+        avgOverall: num(t.avg_overall),
+        lastRatedAt: t.last_rated_at,
+        flagsPct,
+        recentRatings: recent,
+      };
     },
   );
 

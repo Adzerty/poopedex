@@ -7,6 +7,7 @@ import type {
   LeaderboardEntry,
   Profile,
   RatingInput,
+  ToiletDetail,
   ToiletSummary,
 } from './types';
 import type { GeoPosition } from '../hooks/useGeolocation';
@@ -43,6 +44,15 @@ export function useToiletsInBBox(bbox: BBox | null, enabled: boolean) {
     // 5 min, ça absorbe tous les pans/zooms dans le même secteur sans refetch.
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
+  });
+}
+
+export function useToiletDetail(toiletId: string | null) {
+  return useQuery({
+    queryKey: ['toilet', toiletId],
+    enabled: !!toiletId,
+    queryFn: () => api<ToiletDetail>(`/toilets/${toiletId}`),
+    staleTime: 30_000,
   });
 }
 
@@ -109,8 +119,9 @@ export function useCheckin() {
         method: 'POST',
         body: { lat: vars.lat, lng: vars.lng, accuracy: vars.accuracy, rating: vars.rating },
       }),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['toilets'] });
+      qc.invalidateQueries({ queryKey: ['toilet', vars.toiletId] });
       qc.invalidateQueries({ queryKey: ['me'] });
     },
   });
