@@ -1,6 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from './client';
-import type { CheckinResult, Profile, RatingInput, ToiletSummary } from './types';
+import type {
+  AdminToilet,
+  AdminUser,
+  CheckinResult,
+  Profile,
+  RatingInput,
+  ToiletSummary,
+} from './types';
 import type { GeoPosition } from '../hooks/useGeolocation';
 
 export function useNearbyToilets(pos: GeoPosition | null, radius = 1000) {
@@ -15,6 +22,40 @@ export function useNearbyToilets(pos: GeoPosition | null, radius = 1000) {
 
 export function useProfile() {
   return useQuery({ queryKey: ['me'], queryFn: () => api<Profile>('/users/me') });
+}
+
+export function useUserProfile(userId: string | null) {
+  return useQuery({
+    queryKey: ['user', userId],
+    enabled: !!userId,
+    queryFn: () => api<Profile>(`/users/${userId}`),
+  });
+}
+
+export function useAdminToilets() {
+  return useQuery({
+    queryKey: ['admin', 'toilets'],
+    queryFn: () => api<AdminToilet[]>('/admin/toilets'),
+  });
+}
+
+export function useAdminUsers() {
+  return useQuery({
+    queryKey: ['admin', 'users'],
+    queryFn: () => api<AdminUser[]>('/admin/users'),
+  });
+}
+
+export function useDeleteToilet() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (toiletId: string) =>
+      api<void>(`/admin/toilets/${toiletId}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['toilets'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'toilets'] });
+    },
+  });
 }
 
 export function useAddToilet() {

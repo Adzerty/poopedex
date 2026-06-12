@@ -6,8 +6,14 @@ import { NotFound } from '../../lib/errors';
 import { getUserStats } from '../badges/service';
 
 async function loadProfile(userId: string) {
-  const { rows } = await pool.query<{ id: string; username: string; avatar_url: string | null; created_at: Date }>(
-    'SELECT id, username, avatar_url, created_at FROM users WHERE id = $1',
+  const { rows } = await pool.query<{
+    id: string;
+    username: string;
+    avatar_url: string | null;
+    created_at: Date;
+    is_admin: boolean;
+  }>(
+    'SELECT id, username, avatar_url, created_at, is_admin FROM users WHERE id = $1',
     [userId],
   );
   const user = rows[0];
@@ -27,6 +33,7 @@ async function loadProfile(userId: string) {
     username: user.username,
     avatarUrl: user.avatar_url,
     memberSince: user.created_at,
+    isAdmin: user.is_admin,
     stats,
     badges,
   };

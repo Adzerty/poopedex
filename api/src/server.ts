@@ -4,6 +4,7 @@ import { serializerCompiler, validatorCompiler, type ZodTypeProvider } from 'fas
 import { ZodError } from 'zod';
 import { AppError } from './lib/errors';
 import authPlugin from './plugins/auth';
+import adminRoutes from './modules/admin/routes';
 import authRoutes from './modules/auth/routes';
 import poopRoutes from './modules/poops/routes';
 import toiletRoutes from './modules/toilets/routes';
@@ -42,6 +43,7 @@ export async function buildServer() {
   await app.register(toiletRoutes, { prefix: '/toilets' });
   await app.register(poopRoutes); // routes /toilets/:id/poops
   await app.register(userRoutes, { prefix: '/users' });
+  await app.register(adminRoutes, { prefix: '/admin' });
 
   return app;
 }

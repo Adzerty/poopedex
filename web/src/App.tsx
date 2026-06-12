@@ -1,9 +1,23 @@
-import { Link, Route, Routes } from 'react-router-dom';
+import { Link, Navigate, Route, Routes } from 'react-router-dom';
+import { useProfile } from './api/hooks';
 import { useAuth } from './auth/AuthProvider';
 import { AuthScreen } from './auth/AuthScreen';
 import { BottomNav } from './components/BottomNav';
+import { AdminScreen } from './screens/AdminScreen';
+import { AdminToiletsScreen } from './screens/AdminToiletsScreen';
+import { AdminUsersScreen } from './screens/AdminUsersScreen';
 import { MapScreen } from './screens/MapScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
+import { UserProfileScreen } from './screens/UserProfileScreen';
+
+function AdminGate({ children }: { children: React.ReactNode }) {
+  const { data: profile, isLoading } = useProfile();
+  if (isLoading) {
+    return <div className="flex h-dvh items-center justify-center text-gray-400">Chargement…</div>;
+  }
+  if (!profile?.isAdmin) return <Navigate to="/" replace />;
+  return <>{children}</>;
+}
 
 export function App() {
   const { user } = useAuth();
@@ -34,6 +48,41 @@ export function App() {
             <ProfileScreen />
             <BottomNav />
           </>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <AdminGate>
+            <>
+              <AdminScreen />
+              <BottomNav />
+            </>
+          </AdminGate>
+        }
+      />
+      <Route
+        path="/admin/toilets"
+        element={
+          <AdminGate>
+            <AdminToiletsScreen />
+          </AdminGate>
+        }
+      />
+      <Route
+        path="/admin/users"
+        element={
+          <AdminGate>
+            <AdminUsersScreen />
+          </AdminGate>
+        }
+      />
+      <Route
+        path="/admin/users/:id"
+        element={
+          <AdminGate>
+            <UserProfileScreen />
+          </AdminGate>
         }
       />
     </Routes>

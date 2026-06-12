@@ -20,6 +20,10 @@ function parseBool(v: string | undefined): boolean | null {
 
 async function upsertToilets(list: OsmToilet[]): Promise<void> {
   for (const t of list) {
+    // Anti-résurrection : si la toilette OSM avait été soft-deletée par un admin,
+    // on saute carrément l'upsert (sinon le ON CONFLICT mettrait à jour les tags
+    // mais le WHERE is_deleted=false côté lecture la masquerait — autant éviter
+    // le bruit en base et garder is_deleted=true intact).
     await pool.query(
       `INSERT INTO toilets (id, source, osm_type, osm_id, location, name,
                             access, fee, wheelchair, unisex, changing_table, raw_tags)
@@ -34,7 +38,8 @@ async function upsertToilets(list: OsmToilet[]): Promise<void> {
          unisex         = EXCLUDED.unisex,
          changing_table = EXCLUDED.changing_table,
          raw_tags       = EXCLUDED.raw_tags,
-         updated_at     = now()`,
+         updated_at     = now()
+       WHERE toilets.is_deleted = false`,
       [
         t.osmType, t.osmId, t.lat, t.lng, t.tags.name ?? null,
         t.tags.access ?? null, parseBool(t.tags.fee), parseBool(t.tags.wheelchair),

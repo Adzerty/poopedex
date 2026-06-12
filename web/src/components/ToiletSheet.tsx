@@ -1,7 +1,7 @@
 import { allowedCheckinRadius } from '@poopedex/shared';
 import { useState } from 'react';
 import { ApiError } from '../api/client';
-import { useCheckin } from '../api/hooks';
+import { useCheckin, useDeleteToilet, useProfile } from '../api/hooks';
 import type { CheckinResult, RatingInput, ToiletSummary } from '../api/types';
 import type { GeoPosition } from '../hooks/useGeolocation';
 import { haversineM } from '../lib/geo';
@@ -16,11 +16,27 @@ interface Props {
 
 export function ToiletSheet({ toilet, position, onClose, onCheckedIn }: Props) {
   const checkin = useCheckin();
+  const deleteToilet = useDeleteToilet();
+  const { data: me } = useProfile();
+  const isAdmin = me?.isAdmin === true;
   const [error, setError] = useState<string | null>(null);
 
   const distance = position ? haversineM(position.lat, position.lng, toilet.lat, toilet.lng) : null;
   const maxRadius = allowedCheckinRadius(position?.accuracy);
-  const inRange = distance !== null && distance <= maxRadius;
+  // Admin : check-in possible peu importe la distance, mais la position GPS reste
+  // requise pour envoyer le check-in (lat/lng obligatoires côté API).
+  const inRange = distance !== null && (isAdmin || distance <= maxRadius);
+
+  async function onDelete() {
+    if (!window.confirm('Supprimer définitivement cette toilette ?')) return;
+    setError(null);
+    try {
+      await deleteToilet.mutateAsync(toilet.id);
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Échec de la suppression');
+    }
+  }
 
   async function doCheckin(rating?: RatingInput) {
     if (!position) return;
@@ -65,10 +81,23 @@ export function ToiletSheet({ toilet, position, onClose, onCheckedIn }: Props) {
         <div className="my-4 rounded-xl bg-amber-50 px-4 py-2 text-sm text-amber-800">
           {distance === null
             ? 'Position inconnue…'
-            : inRange
-              ? `📍 Tu y es (${Math.round(distance)} m) — enregistre ton passage !`
-              : `📍 Approche-toi : ${Math.round(distance)} m (max ${Math.round(maxRadius)} m)`}
+            : isAdmin
+              ? `📍 ${Math.round(distance)} m — mode admin (distance ignorée)`
+              : inRange
+                ? `📍 Tu y es (${Math.round(distance)} m) — enregistre ton passage !`
+                : `📍 Approche-toi : ${Math.round(distance)} m (max ${Math.round(maxRadius)} m)`}
         </div>
+
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onDelete}
+            disabled={deleteToilet.isPending}
+            className="mb-3 w-full rounded-xl border border-red-300 bg-red-50 py-2 text-sm font-medium text-red-700 active:bg-red-100 disabled:opacity-50"
+          >
+            🗑️ Supprimer cette toilette (admin)
+          </button>
+        )}
 
         {error && <p className="mb-3 text-sm text-red-600">{error}</p>}
 

@@ -47,6 +47,33 @@ export interface Profile {
   username: string;
   avatarUrl: string | null;
   memberSince: string;
+  isAdmin?: boolean;
   stats: UserStats;
   badges: Badge[];
+}
+
+export interface AdminToilet {
+  id: string;
+  name: string | null;
+  source: 'osm' | 'user';
+  status: string;
+  isDeleted: boolean;
+  lat: number;
+  lng: number;
+  poopsCount: number;
+  ratingsCount: number;
+  avgOverall: number | null;
+  createdAt: string;
+  deletedAt: string | null;
+  createdByUsername: string | null;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  isAdmin: boolean;
+  avatarUrl: string | null;
+  createdAt: string;
+  poopsCount: number;
 }

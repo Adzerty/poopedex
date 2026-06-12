@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { pool, withTransaction } from '../../db/pool';
 import { Conflict, NotFound, TooManyRequests } from '../../lib/errors';
 import { ensureAreaIngested } from '../../ingest/service';
+import { isAdmin } from '../../plugins/auth';
 
 const NearbyQuery = z.object({
   lat: z.coerce.number().min(-90).max(90),
@@ -57,6 +58,7 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
                 )) AS collected
          FROM toilets t
          WHERE t.status = 'active'
+           AND t.is_deleted = false
            AND ST_DWithin(t.location, ST_MakePoint($2, $1)::geography, $3)
          ORDER BY t.location <-> ST_MakePoint($2, $1)::geography
          LIMIT 500`,
@@ -88,7 +90,7 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
                 poops_count, ratings_count,
                 avg_cleanliness, avg_safety, avg_hygiene, avg_inclusivity, avg_overall,
                 last_rated_at
-         FROM toilets WHERE id = $1`,
+         FROM toilets WHERE id = $1 AND is_deleted = false`,
         [req.params.id],
       );
       const t = rows[0];
@@ -116,28 +118,32 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
       const { lat, lng, name } = req.body;
       const userId = req.user.sub;
       const id = uuidv7();
+      const admin = await isAdmin(userId);
 
       await withTransaction(async (client) => {
         // Sérialise les ajouts d'un même user (anti-race sur la limite quotidienne).
-        await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
+        // Admin : pas de limite ni d'anti-doublon — il peut ajouter autant qu'il veut.
+        if (!admin) {
+          await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [userId]);
 
-        const { rows: recent } = await client.query(
-          `SELECT 1 FROM toilets
-           WHERE created_by = $1 AND created_at > now() - interval '24 hours' LIMIT 1`,
-          [userId],
-        );
-        if (recent.length) {
-          throw TooManyRequests('daily_limit', 'Tu as déjà ajouté une toilette ces dernières 24 h.');
-        }
+          const { rows: recent } = await client.query(
+            `SELECT 1 FROM toilets
+             WHERE created_by = $1 AND created_at > now() - interval '24 hours' LIMIT 1`,
+            [userId],
+          );
+          if (recent.length) {
+            throw TooManyRequests('daily_limit', 'Tu as déjà ajouté une toilette ces dernières 24 h.');
+          }
 
-        const { rows: near } = await client.query(
-          `SELECT 1 FROM toilets
-           WHERE status = 'active'
-             AND ST_DWithin(location, ST_MakePoint($2, $1)::geography, $3) LIMIT 1`,
-          [lat, lng, ADD_TOILET_MIN_DISTANCE_M],
-        );
-        if (near.length) {
-          throw Conflict('duplicate_nearby', `Une toilette existe déjà à moins de ${ADD_TOILET_MIN_DISTANCE_M} m.`);
+          const { rows: near } = await client.query(
+            `SELECT 1 FROM toilets
+             WHERE status = 'active' AND is_deleted = false
+               AND ST_DWithin(location, ST_MakePoint($2, $1)::geography, $3) LIMIT 1`,
+            [lat, lng, ADD_TOILET_MIN_DISTANCE_M],
+          );
+          if (near.length) {
+            throw Conflict('duplicate_nearby', `Une toilette existe déjà à moins de ${ADD_TOILET_MIN_DISTANCE_M} m.`);
+          }
         }
 
         await client.query(

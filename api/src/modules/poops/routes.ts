@@ -5,6 +5,7 @@ import { uuidv7 } from 'uuidv7';
 import { z } from 'zod';
 import { withTransaction } from '../../db/pool';
 import { NotFound, Unprocessable } from '../../lib/errors';
+import { isAdmin } from '../../plugins/auth';
 import { evaluateBadges, getUserStats } from '../badges/service';
 
 const RatingBody = z.object({
@@ -40,12 +41,14 @@ const poopRoutes: FastifyPluginAsync = async (app) => {
       const toiletId = req.params.id;
       const { lat, lng, accuracy, rating } = req.body;
 
+      const admin = await isAdmin(userId);
+
       return withTransaction(async (client) => {
         // Distance réelle toilette <-> position annoncée (en mètres).
         const { rows } = await client.query<{ distance_m: number | string; was_collected: boolean }>(
           `SELECT ST_Distance(location, ST_MakePoint($2, $1)::geography) AS distance_m,
                   EXISTS (SELECT 1 FROM poops WHERE toilet_id = $3 AND user_id = $4) AS was_collected
-           FROM toilets WHERE id = $3 AND status = 'active'`,
+           FROM toilets WHERE id = $3 AND status = 'active' AND is_deleted = false`,
           [lat, lng, toiletId, userId],
         );
         const row = rows[0];
@@ -53,7 +56,8 @@ const poopRoutes: FastifyPluginAsync = async (app) => {
 
         const distanceM = Number(row.distance_m);
         const maxRadius = allowedCheckinRadius(accuracy);
-        if (distanceM > maxRadius) {
+        // Admin : check-in possible peu importe la distance (debug / modération).
+        if (!admin && distanceM > maxRadius) {
           throw Unprocessable(
             'too_far',
             `Trop loin de la toilette (${Math.round(distanceM)} m, max ${Math.round(maxRadius)} m)`,

@@ -2,6 +2,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import type { Map as MlMap } from 'maplibre-gl';
 import { useEffect, useRef, useState } from 'react';
 import Map, { Marker, type MapRef } from 'react-map-gl/maplibre';
+import { useSearchParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
 import { useAddToilet, useNearbyToilets } from '../api/hooks';
 import type { CheckinResult, ToiletSummary } from '../api/types';
@@ -27,7 +28,15 @@ const MAP_STYLE = import.meta.env.VITE_MAP_STYLE ?? 'https://tiles.openfreemap.o
 
 export function MapScreen() {
   const { position, error: geoError } = useGeolocation();
-  const { data: toilets } = useNearbyToilets(position, 1500);
+  const [searchParams] = useSearchParams();
+  // Cible passée par la vue admin : ?lat&lng[&id] → centre la carte + ouvre la fiche.
+  const targetLat = parseFloat(searchParams.get('lat') ?? '');
+  const targetLng = parseFloat(searchParams.get('lng') ?? '');
+  const targetId = searchParams.get('id');
+  const hasTarget = Number.isFinite(targetLat) && Number.isFinite(targetLng);
+  // Si une cible est demandée, on cherche les toilettes autour d'elle ; sinon autour de l'user.
+  const queryPos = hasTarget ? { lat: targetLat, lng: targetLng, accuracy: 0 } : position;
+  const { data: toilets } = useNearbyToilets(queryPos, 1500);
   const addToilet = useAddToilet();
   const [selected, setSelected] = useState<ToiletSummary | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -54,11 +63,23 @@ export function MapScreen() {
   // Centre la carte sur l'utilisateur au premier fix GPS — une fois la carte chargée
   // (sinon flyTo est ignoré sur une carte non prête et le recentrage est raté).
   useEffect(() => {
+    if (mapLoaded && hasTarget && !centered.current) {
+      mapRef.current?.flyTo({ center: [targetLng, targetLat], zoom: 17 });
+      centered.current = true;
+      return;
+    }
     if (mapLoaded && position && !centered.current) {
       mapRef.current?.flyTo({ center: [position.lng, position.lat], zoom: 16 });
       centered.current = true;
     }
-  }, [mapLoaded, position]);
+  }, [mapLoaded, position, hasTarget, targetLat, targetLng]);
+
+  // Ouvre automatiquement la fiche de la toilette ciblée par la vue admin.
+  useEffect(() => {
+    if (!targetId || !toilets || selected) return;
+    const found = toilets.find((t) => t.id === targetId);
+    if (found) setSelected(found);
+  }, [targetId, toilets, selected]);
 
   function onCheckedIn(result: CheckinResult) {
     setSelected(null);
