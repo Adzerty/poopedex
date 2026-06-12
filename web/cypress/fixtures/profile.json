@@ -16,7 +16,24 @@
       "name": "Premier poop",
       "description": "Tu as enregistré ton premier poop.",
       "icon": "🥇",
-      "unlocked_at": "2026-01-15T11:00:00.000Z"
+      "unlockedAt": "2026-01-15T11:00:00.000Z",
+      "progress": { "current": 42, "target": 1 }
+    },
+    {
+      "code": "explorer_50",
+      "name": "Grand voyageur",
+      "description": "50 toilettes différentes découvertes.",
+      "icon": "🌍",
+      "unlockedAt": null,
+      "progress": { "current": 17, "target": 50 }
+    },
+    {
+      "code": "score_10k",
+      "name": "Pro du trône",
+      "description": "10 000 points de rareté cumulés.",
+      "icon": "🥈",
+      "unlockedAt": null,
+      "progress": { "current": 1337, "target": 10000 }
     }
   ],
   "friendshipStatus": "self"

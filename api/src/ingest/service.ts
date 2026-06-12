@@ -1,6 +1,12 @@
-import { pool } from '../db/pool';
-import { fetchToilets, type OsmToilet } from './overpass';
-import { coveringTiles, coveringTilesForBBox, tileToBBox, type BBox, type Tile } from './tiles';
+import { pool } from "../db/pool";
+import { fetchToilets, type OsmToilet } from "./overpass";
+import {
+  coveringTiles,
+  coveringTilesForBBox,
+  tileToBBox,
+  type BBox,
+  type Tile,
+} from "./tiles";
 
 /** Fraîcheur du cache d'une tuile : on ne re-fetch Overpass qu'au-delà. */
 const TILE_TTL_DAYS = 7;
@@ -13,8 +19,8 @@ const inFlight = new Set<string>();
 const tileKey = (t: Tile) => `${t.z}/${t.x}/${t.y}`;
 
 function parseBool(v: string | undefined): boolean | null {
-  if (v === 'yes') return true;
-  if (v === 'no') return false;
+  if (v === "yes") return true;
+  if (v === "no") return false;
   return null;
 }
 
@@ -41,10 +47,18 @@ async function upsertToilets(list: OsmToilet[]): Promise<void> {
          updated_at     = now()
        WHERE toilets.is_deleted = false`,
       [
-        t.osmType, t.osmId, t.lat, t.lng, t.tags.name ?? null,
-        t.tags.access ?? null, parseBool(t.tags.fee), parseBool(t.tags.wheelchair),
-        parseBool(t.tags.unisex), parseBool(t.tags.changing_table), JSON.stringify(t.tags),
-      ],
+        t.osmType,
+        t.osmId,
+        t.lat,
+        t.lng,
+        t.tags.name ?? null,
+        t.tags.access ?? null,
+        parseBool(t.tags.fee),
+        parseBool(t.tags.wheelchair),
+        parseBool(t.tags.unisex),
+        parseBool(t.tags.changing_table),
+        JSON.stringify(t.tags),
+      ]
     );
   }
 }
@@ -57,7 +71,7 @@ async function ingestTile(tile: Tile): Promise<void> {
   const { rows } = await pool.query(
     `SELECT 1 FROM osm_ingest_tiles
      WHERE z = $1 AND x = $2 AND y = $3 AND fetched_at > now() - ($4 || ' days')::interval`,
-    [tile.z, tile.x, tile.y, String(TILE_TTL_DAYS)],
+    [tile.z, tile.x, tile.y, String(TILE_TTL_DAYS)]
   );
   if (rows.length) return; // cache encore frais
 
@@ -69,7 +83,7 @@ async function ingestTile(tile: Tile): Promise<void> {
       `INSERT INTO osm_ingest_tiles (z, x, y, fetched_at, toilet_count)
        VALUES ($1, $2, $3, now(), $4)
        ON CONFLICT (z, x, y) DO UPDATE SET fetched_at = now(), toilet_count = EXCLUDED.toilet_count`,
-      [tile.z, tile.x, tile.y, toilets.length],
+      [tile.z, tile.x, tile.y, toilets.length]
     );
   } finally {
     inFlight.delete(key);
@@ -77,7 +91,10 @@ async function ingestTile(tile: Tile): Promise<void> {
 }
 
 function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | void> {
-  return Promise.race([p, new Promise<void>((resolve) => setTimeout(resolve, ms))]);
+  return Promise.race([
+    p,
+    new Promise<void>((resolve) => setTimeout(resolve, ms)),
+  ]);
 }
 
 /**
@@ -85,12 +102,19 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T | void> {
  * temps) pour des données immédiates, et lance le reste en arrière-plan.
  * Toujours résiliente : un Overpass lent/HS ne bloque jamais la réponse.
  */
-export async function ensureAreaIngested(lat: number, lng: number, radiusM: number): Promise<void> {
+export async function ensureAreaIngested(
+  lat: number,
+  lng: number,
+  radiusM: number
+): Promise<void> {
   const tiles = coveringTiles(lat, lng, radiusM);
   if (tiles.length === 0) return;
 
   const center = tiles[0]!;
-  await withTimeout(ingestTile(center).catch(() => {}), CENTER_INGEST_TIMEOUT_MS);
+  await withTimeout(
+    ingestTile(center).catch(() => {}),
+    CENTER_INGEST_TIMEOUT_MS
+  );
   for (const tile of tiles.slice(1)) {
     void ingestTile(tile).catch(() => {});
   }
@@ -105,14 +129,21 @@ export async function ensureBBoxIngested(bbox: BBox): Promise<void> {
   if (tiles.length === 0) return;
 
   const center = tiles[0]!;
-  await withTimeout(ingestTile(center).catch(() => {}), CENTER_INGEST_TIMEOUT_MS);
+  await withTimeout(
+    ingestTile(center).catch(() => {}),
+    CENTER_INGEST_TIMEOUT_MS
+  );
   for (const tile of tiles.slice(1)) {
     void ingestTile(tile).catch(() => {});
   }
 }
 
 /** Version bloquante (CLI / seed) : ingère toutes les tuiles et attend la fin. */
-export async function ingestAreaBlocking(lat: number, lng: number, radiusM: number): Promise<number> {
+export async function ingestAreaBlocking(
+  lat: number,
+  lng: number,
+  radiusM: number
+): Promise<number> {
   const tiles = coveringTiles(lat, lng, radiusM);
   for (const tile of tiles) {
     await ingestTile(tile);

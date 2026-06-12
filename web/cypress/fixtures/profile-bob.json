@@ -10,6 +10,23 @@
     "totalPoints": 250,
     "maxRarityScore": 80
   },
-  "badges": [],
+  "badges": [
+    {
+      "code": "first-poop",
+      "name": "Premier poop",
+      "description": "Tu as enregistré ton premier poop.",
+      "icon": "🥇",
+      "unlockedAt": "2026-02-01T12:00:00.000Z",
+      "progress": { "current": 10, "target": 1 }
+    },
+    {
+      "code": "regular_25",
+      "name": "Habitué",
+      "description": "25 poops au total. Bravo, ça coule.",
+      "icon": "🏆",
+      "unlockedAt": null,
+      "progress": { "current": 10, "target": 25 }
+    }
+  ],
   "friendshipStatus": "none"
 }

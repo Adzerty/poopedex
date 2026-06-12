@@ -11,6 +11,15 @@
     "totalPoints": 9999,
     "maxRarityScore": 800
   },
-  "badges": [],
+  "badges": [
+    {
+      "code": "first-poop",
+      "name": "Premier poop",
+      "description": "Tu as enregistré ton premier poop.",
+      "icon": "🥇",
+      "unlockedAt": "2026-01-01T12:00:00.000Z",
+      "progress": { "current": 99, "target": 1 }
+    }
+  ],
   "friendshipStatus": "self"
 }

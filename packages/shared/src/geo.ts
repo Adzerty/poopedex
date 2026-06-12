@@ -25,14 +25,14 @@ export const OSM_INGEST_ZOOM = 14;
  * En-dessous, marqueurs masqués et aucun fetch — évite de noyer la carte et
  * de matraquer le serveur/Overpass avec des bbox gigantesques.
  */
-export const MAP_FETCH_MIN_ZOOM = 14;
+export const MAP_FETCH_MIN_ZOOM = 13;
 
 /**
  * Bbox max acceptée par /toilets/bbox (degrés). Au-delà → 400, pour qu'un client
  * (bug ou abus) ne puisse pas demander « toutes les toilettes de France ».
- * 0.3° ≈ 33 km en longueur d'arc → reste dans le plafond de 16 tuiles z14.
+ * 0.6° ≈ 66 km en longueur d'arc → couvre une viewport phone à z13 avec marge.
  */
-export const MAP_BBOX_MAX_SPAN_DEG = 0.3;
+export const MAP_BBOX_MAX_SPAN_DEG = 0.6;
 
 /** Distance minimale (m) entre une toilette ajoutée par un user et une existante (anti-doublon). */
 export const ADD_TOILET_MIN_DISTANCE_M = 100;

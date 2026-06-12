@@ -1,5 +1,6 @@
 import { useProfile } from '../api/hooks';
 import { useAuth } from '../auth/AuthProvider';
+import { BadgeList } from '../components/BadgeList';
 
 export function ProfileScreen() {
   const { logout } = useAuth();
@@ -59,21 +60,10 @@ export function ProfileScreen() {
 
       <section className="mt-8">
         <h2 className="mb-3 text-lg font-semibold text-amber-900">Badges</h2>
-        {profile.badges.length === 0 ? (
-          <p className="text-sm text-amber-600">Aucun badge pour l'instant. Va chier quelque part ! 💪</p>
-        ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {profile.badges.map((b) => (
-              <div key={b.code} className="flex items-center gap-3 rounded-2xl bg-white p-3 shadow-sm">
-                <div className="text-3xl">{b.icon ?? '🏅'}</div>
-                <div>
-                  <div className="text-sm font-semibold text-gray-900">{b.name}</div>
-                  <div className="text-xs text-gray-500">{b.description}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <BadgeList
+          badges={profile.badges}
+          emptyHint="Aucun badge pour l'instant. Va chier quelque part ! 💪"
+        />
       </section>
 
       <section className="mt-8">

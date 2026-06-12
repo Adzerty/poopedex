@@ -68,7 +68,10 @@ export interface Badge {
   name: string;
   description: string;
   icon: string | null;
-  unlocked_at: string;
+  /** `null` si le badge n'est pas encore débloqué pour ce profil. */
+  unlockedAt: string | null;
+  /** Avancement vers le critère du badge (clamp côté UI). */
+  progress: { current: number; target: number };
 }
 
 export type FriendshipStatus =

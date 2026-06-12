@@ -21,6 +21,67 @@ describe('Profil personnel', () => {
     cy.contains('Premier poop').should('be.visible');
   });
 
+  it('affiche les badges verrouillés avec leur progression vers la cible', () => {
+    cy.visit('/profile');
+    cy.wait('@me');
+
+    // Section "À débloquer"
+    cy.contains('À débloquer').should('be.visible');
+
+    // Badge débloqué → flag data-unlocked=true
+    cy.get('[data-testid="badge-first-poop"]').should('have.attr', 'data-unlocked', 'true');
+
+    // Badge verrouillé → flag data-unlocked=false + barre de progression visible
+    cy.get('[data-testid="badge-explorer_50"]')
+      .should('have.attr', 'data-unlocked', 'false')
+      .within(() => {
+        cy.contains('Grand voyageur').should('be.visible');
+        cy.contains('17 / 50').should('be.visible'); // current / target (fr-FR)
+        cy.get('[role="progressbar"]').should('have.attr', 'aria-valuenow', '34'); // 17/50
+      });
+
+    cy.get('[data-testid="badge-score_10k"]')
+      .should('have.attr', 'data-unlocked', 'false')
+      .within(() => {
+        cy.contains('1 337 / 10 000').should('be.visible');
+        cy.get('[role="progressbar"]').should('have.attr', 'aria-valuenow', '13'); // 1337/10000
+      });
+  });
+
+  it("n'affiche pas la section 'À débloquer' quand tout est débloqué", () => {
+    cy.intercept('GET', 'http://localhost:3000/users/me', {
+      body: {
+        id: '00000000-0000-0000-0000-00000000aaaa',
+        username: 'alice',
+        avatarUrl: null,
+        memberSince: '2026-01-15T10:00:00.000Z',
+        stats: {
+          totalPoops: 42,
+          distinctToilets: 17,
+          totalRatings: 12,
+          totalPoints: 1337,
+          maxRarityScore: 250,
+        },
+        badges: [
+          {
+            code: 'first-poop',
+            name: 'Premier poop',
+            description: 'Tu as enregistré ton premier poop.',
+            icon: '🥇',
+            unlockedAt: '2026-01-15T11:00:00.000Z',
+            progress: { current: 42, target: 1 },
+          },
+        ],
+        friendshipStatus: 'self',
+      },
+    }).as('meAllUnlocked');
+    cy.visit('/profile');
+    cy.wait('@meAllUnlocked');
+
+    cy.contains('Premier poop').should('be.visible');
+    cy.contains('À débloquer').should('not.exist');
+  });
+
   it("affiche un message d'erreur si /users/me crash", () => {
     cy.intercept('GET', 'http://localhost:3000/users/me', { statusCode: 500, body: {} }).as('meErr');
     cy.visit('/profile');
@@ -47,6 +108,15 @@ describe("Profil public d'un autre user", () => {
     cy.wait('@sendFriendReq').its('request.body').should('deep.equal', {
       userId: '00000000-0000-0000-0000-00000000bbbb',
     });
+  });
+
+  it('affiche les badges débloqués ET les badges à débloquer du profil consulté', () => {
+    cy.visit('/users/00000000-0000-0000-0000-00000000bbbb');
+    cy.wait('@userBob');
+    cy.get('[data-testid="badge-first-poop"]').should('have.attr', 'data-unlocked', 'true');
+    cy.get('[data-testid="badge-regular_25"]')
+      .should('have.attr', 'data-unlocked', 'false')
+      .within(() => cy.contains('10 / 25').should('be.visible'));
   });
 
   it("affiche 'Demande envoyée' quand pending_outgoing", () => {

@@ -33,6 +33,32 @@ async function getFriendshipStatus(
   return 'none';
 }
 
+/**
+ * Critère déclaratif stocké dans badges.criteria. Mirror du type interne au
+ * service badges — gardé local pour ne pas exposer une dépendance circulaire,
+ * et parce qu'on n'utilise que le shape pour calculer la progression.
+ */
+type BadgeCriteria =
+  | { type: 'total_poops'; gte: number }
+  | { type: 'distinct_toilets'; gte: number }
+  | { type: 'total_ratings'; gte: number }
+  | { type: 'total_points'; gte: number }
+  | { type: 'single_poop_score'; gte: number };
+
+function progressFor(
+  criteria: BadgeCriteria,
+  stats: Awaited<ReturnType<typeof getUserStats>>,
+): { current: number; target: number } {
+  const target = criteria.gte;
+  switch (criteria.type) {
+    case 'total_poops':        return { current: stats.totalPoops, target };
+    case 'distinct_toilets':   return { current: stats.distinctToilets, target };
+    case 'total_ratings':      return { current: stats.totalRatings, target };
+    case 'total_points':       return { current: stats.totalPoints, target };
+    case 'single_poop_score':  return { current: stats.maxRarityScore, target };
+  }
+}
+
 async function loadProfile(userId: string, viewerId: string | null) {
   const { rows } = await pool.query<{
     id: string;
@@ -49,12 +75,44 @@ async function loadProfile(userId: string, viewerId: string | null) {
 
   const stats = await getUserStats(pool, userId);
 
-  const { rows: badges } = await pool.query(
-    `SELECT b.code, b.name, b.description, b.icon, ub.unlocked_at
-     FROM user_badges ub JOIN badges b ON b.id = ub.badge_id
-     WHERE ub.user_id = $1 ORDER BY ub.unlocked_at DESC`,
+  // Tous les badges + LEFT JOIN sur user_badges pour savoir lesquels sont
+  // débloqués pour ce profil. Permet d'afficher les "à débloquer" côté UI.
+  const { rows: badgeRows } = await pool.query<{
+    code: string;
+    name: string;
+    description: string;
+    icon: string | null;
+    criteria: BadgeCriteria;
+    unlocked_at: Date | null;
+  }>(
+    `SELECT b.code, b.name, b.description, b.icon, b.criteria, ub.unlocked_at
+     FROM badges b
+     LEFT JOIN user_badges ub ON ub.badge_id = b.id AND ub.user_id = $1`,
     [userId],
   );
+
+  const badges = badgeRows
+    .map((b) => ({
+      code: b.code,
+      name: b.name,
+      description: b.description,
+      icon: b.icon,
+      unlockedAt: b.unlocked_at,
+      progress: progressFor(b.criteria, stats),
+    }))
+    .sort((a, b) => {
+      // 1) débloqués d'abord (plus récents en haut), 2) puis verrouillés
+      //    par ratio de progression décroissant, target ascendant.
+      if (a.unlockedAt && b.unlockedAt) {
+        return b.unlockedAt.getTime() - a.unlockedAt.getTime();
+      }
+      if (a.unlockedAt) return -1;
+      if (b.unlockedAt) return 1;
+      const ra = a.progress.current / a.progress.target;
+      const rb = b.progress.current / b.progress.target;
+      if (ra !== rb) return rb - ra;
+      return a.progress.target - b.progress.target;
+    });
 
   const friendshipStatus = await getFriendshipStatus(viewerId, userId);
 
