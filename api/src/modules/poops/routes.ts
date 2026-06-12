@@ -1,4 +1,4 @@
-import { allowedCheckinRadius, computeScores } from '@poopedex/shared';
+import { allowedCheckinRadius, computeRarityScore, computeScores } from '@poopedex/shared';
 import type { FastifyPluginAsync } from 'fastify';
 import type { ZodTypeProvider } from 'fastify-type-provider-zod';
 import { uuidv7 } from 'uuidv7';
@@ -45,9 +45,15 @@ const poopRoutes: FastifyPluginAsync = async (app) => {
 
       return withTransaction(async (client) => {
         // Distance réelle toilette <-> position annoncée (en mètres).
-        const { rows } = await client.query<{ distance_m: number | string; was_collected: boolean }>(
+        // poops_count est lu maintenant pour figer le score de rareté avant l'insertion.
+        const { rows } = await client.query<{
+          distance_m: number | string;
+          was_collected: boolean;
+          poops_count: number;
+        }>(
           `SELECT ST_Distance(location, ST_MakePoint($2, $1)::geography) AS distance_m,
-                  EXISTS (SELECT 1 FROM poops WHERE toilet_id = $3 AND user_id = $4) AS was_collected
+                  EXISTS (SELECT 1 FROM poops WHERE toilet_id = $3 AND user_id = $4) AS was_collected,
+                  poops_count
            FROM toilets WHERE id = $3 AND status = 'active' AND is_deleted = false`,
           [lat, lng, toiletId, userId],
         );
@@ -55,6 +61,7 @@ const poopRoutes: FastifyPluginAsync = async (app) => {
         if (!row) throw NotFound('Toilette introuvable');
 
         const distanceM = Number(row.distance_m);
+        const rarityScore = computeRarityScore(Number(row.poops_count));
         const maxRadius = allowedCheckinRadius(accuracy);
         // Admin : check-in possible peu importe la distance (debug / modération).
         if (!admin && distanceM > maxRadius) {
@@ -67,9 +74,9 @@ const poopRoutes: FastifyPluginAsync = async (app) => {
         // Enregistre le poop (le trigger incrémente poops_count).
         const poopId = uuidv7();
         await client.query(
-          `INSERT INTO poops (id, user_id, toilet_id, checkin_loc, checkin_accuracy, distance_m)
-           VALUES ($1, $2, $3, ST_MakePoint($5, $4)::geography, $6, $7)`,
-          [poopId, userId, toiletId, lat, lng, accuracy ?? null, distanceM],
+          `INSERT INTO poops (id, user_id, toilet_id, checkin_loc, checkin_accuracy, distance_m, rarity_score)
+           VALUES ($1, $2, $3, ST_MakePoint($5, $4)::geography, $6, $7, $8)`,
+          [poopId, userId, toiletId, lat, lng, accuracy ?? null, distanceM, rarityScore],
         );
 
         // Note optionnelle : scores calculés ici, le trigger agrège les moyennes.
@@ -109,6 +116,7 @@ const poopRoutes: FastifyPluginAsync = async (app) => {
           poopId,
           newlyCollected: !row.was_collected, // première fois sur cette toilette
           distanceM: Math.round(distanceM * 10) / 10,
+          rarityScore,
           stats,
           newBadges,
         };

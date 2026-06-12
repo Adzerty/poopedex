@@ -5,13 +5,17 @@ interface UserStats {
   totalPoops: number;
   distinctToilets: number;
   totalRatings: number;
+  totalPoints: number;
+  maxRarityScore: number;
 }
 
 /** Critère déclaratif stocké dans badges.criteria (JSONB). */
 type Criteria =
   | { type: 'total_poops'; gte: number }
   | { type: 'distinct_toilets'; gte: number }
-  | { type: 'total_ratings'; gte: number };
+  | { type: 'total_ratings'; gte: number }
+  | { type: 'total_points'; gte: number }
+  | { type: 'single_poop_score'; gte: number };
 
 function isMet(criteria: Criteria, stats: UserStats): boolean {
   switch (criteria.type) {
@@ -21,6 +25,10 @@ function isMet(criteria: Criteria, stats: UserStats): boolean {
       return stats.distinctToilets >= criteria.gte;
     case 'total_ratings':
       return stats.totalRatings >= criteria.gte;
+    case 'total_points':
+      return stats.totalPoints >= criteria.gte;
+    case 'single_poop_score':
+      return stats.maxRarityScore >= criteria.gte;
     default:
       return false;
   }
@@ -32,7 +40,9 @@ export async function getUserStats(client: Db, userId: string): Promise<UserStat
        (SELECT count(*) FROM poops WHERE user_id = $1)                       AS total_poops,
        (SELECT count(DISTINCT toilet_id) FROM poops WHERE user_id = $1)      AS distinct_toilets,
        (SELECT count(*) FROM ratings r
-          JOIN poops p ON p.id = r.poop_id WHERE p.user_id = $1)             AS total_ratings`,
+          JOIN poops p ON p.id = r.poop_id WHERE p.user_id = $1)             AS total_ratings,
+       (SELECT coalesce(sum(rarity_score), 0) FROM poops WHERE user_id = $1) AS total_points,
+       (SELECT coalesce(max(rarity_score), 0) FROM poops WHERE user_id = $1) AS max_rarity_score`,
     [userId],
   );
   const row = rows[0];
@@ -40,6 +50,8 @@ export async function getUserStats(client: Db, userId: string): Promise<UserStat
     totalPoops: Number(row.total_poops),
     distinctToilets: Number(row.distinct_toilets),
     totalRatings: Number(row.total_ratings),
+    totalPoints: Number(row.total_points),
+    maxRarityScore: Number(row.max_rarity_score),
   };
 }
 

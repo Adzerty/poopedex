@@ -46,7 +46,14 @@ export function UserProfileScreen() {
         </p>
       </div>
 
-      <div className="mt-6 grid grid-cols-3 gap-3">
+      <div className="mt-6 rounded-2xl bg-gradient-to-br from-amber-500 to-amber-700 p-5 text-center text-white shadow-md">
+        <div className="text-xs uppercase tracking-wider opacity-80">Score de rareté</div>
+        <div className="mt-1 text-4xl font-extrabold">
+          {profile.stats.totalPoints.toLocaleString('fr-FR')} pts
+        </div>
+      </div>
+
+      <div className="mt-4 grid grid-cols-3 gap-3">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl bg-white p-4 text-center shadow-sm">
             <div className="text-2xl">{s.icon}</div>

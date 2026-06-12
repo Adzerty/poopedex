@@ -5,11 +5,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Map, { Marker, type MapRef, type ViewStateChangeEvent } from 'react-map-gl/maplibre';
 import { useSearchParams } from 'react-router-dom';
 import { ApiError } from '../api/client';
-import { useAddToilet, useToiletsInBBox } from '../api/hooks';
+import { useAddToilet, useProfile, useToiletsInBBox } from '../api/hooks';
 import type { CheckinResult, ToiletSummary } from '../api/types';
 import { ToiletMarker } from '../components/ToiletMarker';
 import { ToiletSheet } from '../components/ToiletSheet';
-import { useGeolocation } from '../hooks/useGeolocation';
+import { useGeolocation, type GeoPosition } from '../hooks/useGeolocation';
 import { snapBBoxToTiles, type BBox } from '../lib/bbox';
 
 /**
@@ -29,7 +29,9 @@ function declutterBaseMap(map: MlMap) {
 const MAP_STYLE = import.meta.env.VITE_MAP_STYLE ?? 'https://tiles.openfreemap.org/styles/liberty';
 
 export function MapScreen() {
-  const { position, error: geoError } = useGeolocation();
+  const { position: gpsPosition, error: geoError } = useGeolocation();
+  const { data: profile } = useProfile();
+  const isAdmin = profile?.isAdmin === true;
   const [searchParams, setSearchParams] = useSearchParams();
   // Cible passée par la vue admin / le classement : ?lat&lng[&id] → centre la carte + ouvre la fiche.
   const targetLat = parseFloat(searchParams.get('lat') ?? '');
@@ -42,6 +44,13 @@ export function MapScreen() {
   const mapRef = useRef<MapRef>(null);
   const centered = useRef(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+
+  // Mode admin : position simulée pour ajouter/check-iner ailleurs que sur place.
+  // Quand actif, remplace la position GPS partout (ajout, check-in, recentrage).
+  const [fakePosition, setFakePosition] = useState<{ lat: number; lng: number } | null>(null);
+  const position: GeoPosition | null = fakePosition
+    ? { lat: fakePosition.lat, lng: fakePosition.lng, accuracy: 5 }
+    : gpsPosition;
 
   // Bbox du viewport (snapée sur la grille z=14) + zoom courant. Pilote le fetch :
   // - bbox change uniquement quand on franchit une tuile → cache React Query stable
@@ -83,6 +92,16 @@ export function MapScreen() {
     }
   }
 
+  function toggleFakePosition() {
+    if (fakePosition) {
+      setFakePosition(null);
+      return;
+    }
+    const center = mapRef.current?.getCenter();
+    if (!center) return;
+    setFakePosition({ lat: center.lat, lng: center.lng });
+  }
+
   // Centre la carte sur l'utilisateur au premier fix GPS — une fois la carte chargée
   // (sinon flyTo est ignoré sur une carte non prête et le recentrage est raté).
   useEffect(() => {
@@ -111,12 +130,13 @@ export function MapScreen() {
   function onCheckedIn(result: CheckinResult) {
     setSelected(null);
     const badge = result.newBadges[0];
+    const pts = `+${result.rarityScore} pt${result.rarityScore > 1 ? 's' : ''}`;
     showToast(
       badge
-        ? `🏅 Badge débloqué : ${badge.name} !`
+        ? `🏅 Badge débloqué : ${badge.name} ! (${pts})`
         : result.newlyCollected
-          ? '✓ Nouvelle toilette collectée !'
-          : '💩 Poop enregistré !',
+          ? `✓ Nouvelle toilette collectée ! ${pts}`
+          : `💩 Poop enregistré ! ${pts}`,
     );
   }
 
@@ -133,11 +153,25 @@ export function MapScreen() {
         }}
         onMoveEnd={onMoveEnd}
       >
-        {/* Position de l'utilisateur */}
-        {position && (
-          <Marker longitude={position.lng} latitude={position.lat}>
+        {/* Position GPS de l'utilisateur (cachée en mode position simulée). */}
+        {gpsPosition && !fakePosition && (
+          <Marker longitude={gpsPosition.lng} latitude={gpsPosition.lat}>
             <div className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-500/25">
               <div className="h-3.5 w-3.5 rounded-full border-2 border-white bg-blue-600 shadow-md" />
+            </div>
+          </Marker>
+        )}
+
+        {/* Position simulée (admin) : marqueur orange traînable. */}
+        {fakePosition && (
+          <Marker
+            longitude={fakePosition.lng}
+            latitude={fakePosition.lat}
+            draggable
+            onDragEnd={(e) => setFakePosition({ lat: e.lngLat.lat, lng: e.lngLat.lng })}
+          >
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-orange-500/30">
+              <div className="h-4 w-4 rounded-full border-2 border-white bg-orange-600 shadow-md" />
             </div>
           </Marker>
         )}
@@ -176,11 +210,31 @@ export function MapScreen() {
         >
           ➕
         </button>
+        {isAdmin && (
+          <button
+            onClick={toggleFakePosition}
+            className={`rounded-full p-3 shadow-lg ${
+              fakePosition
+                ? 'bg-orange-600 text-white active:bg-orange-700'
+                : 'bg-white text-orange-700 active:bg-gray-100'
+            }`}
+            aria-label="Position simulée (admin)"
+            title={fakePosition ? 'Désactiver la position simulée' : 'Simuler ma position (admin)'}
+          >
+            🎭
+          </button>
+        )}
       </div>
 
-      {geoError && (
+      {geoError && !fakePosition && (
         <div className="absolute left-4 right-4 top-4 z-10 rounded-xl bg-red-50 px-4 py-2 text-sm text-red-700 shadow">
           Géolocalisation indisponible : {geoError}
+        </div>
+      )}
+
+      {fakePosition && (
+        <div className="absolute left-4 right-20 top-4 z-10 rounded-xl bg-orange-50 px-4 py-2 text-sm text-orange-800 shadow">
+          🎭 Position simulée — déplace l'épingle orange pour la repositionner.
         </div>
       )}
 

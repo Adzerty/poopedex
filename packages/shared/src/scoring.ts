@@ -54,6 +54,19 @@ function flagsToScore(flags: boolean[]): number {
   return (trueCount / flags.length) * 5;
 }
 
+/**
+ * Score de rareté gagné en check-in : décroît avec la popularité de la toilette.
+ * `poopsCountBefore` est le nombre de poops déjà enregistrés au moment du check-in.
+ * Première personne sur la toilette : RARITY_MAX_POINTS, puis 50, 33, 25…
+ * Plancher à 1 pour qu'un check-in rapporte toujours au moins 1 point.
+ */
+export const RARITY_MAX_POINTS = 100;
+
+export function computeRarityScore(poopsCountBefore: number): number {
+  const raw = RARITY_MAX_POINTS / (1 + Math.max(0, poopsCountBefore));
+  return Math.max(1, Math.round(raw));
+}
+
 export function computeScores(input: RatingInput): ComputedScores {
   const hygieneScore = flagsToScore([
     input.hygiene.hasSoap,

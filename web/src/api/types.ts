@@ -50,6 +50,7 @@ export interface CheckinResult {
   poopId: string;
   newlyCollected: boolean;
   distanceM: number;
+  rarityScore: number;
   stats: UserStats;
   newBadges: { code: string; name: string }[];
 }
@@ -58,6 +59,8 @@ export interface UserStats {
   totalPoops: number;
   distinctToilets: number;
   totalRatings: number;
+  totalPoints: number;
+  maxRarityScore: number;
 }
 
 export interface Badge {
