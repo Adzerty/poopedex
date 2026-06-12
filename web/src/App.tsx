@@ -6,6 +6,7 @@ import { BottomNav } from './components/BottomNav';
 import { AdminScreen } from './screens/AdminScreen';
 import { AdminToiletsScreen } from './screens/AdminToiletsScreen';
 import { AdminUsersScreen } from './screens/AdminUsersScreen';
+import { LeaderboardScreen } from './screens/LeaderboardScreen';
 import { MapScreen } from './screens/MapScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { UserProfileScreen } from './screens/UserProfileScreen';
@@ -30,15 +31,33 @@ export function App() {
         element={
           <div className="relative">
             <MapScreen />
-            {/* Accès profil flottant (la carte reste plein écran). */}
-            <Link
-              to="/profile"
-              className="absolute bottom-6 right-4 z-10 flex h-14 w-14 items-center justify-center rounded-full bg-amber-700 text-2xl text-white shadow-lg active:bg-amber-800"
-              aria-label="Profil"
-            >
-              👤
-            </Link>
+            {/* Accès profil + classement flottants (la carte reste plein écran). */}
+            <div className="absolute bottom-6 right-4 z-10 flex flex-col gap-2">
+              <Link
+                to="/leaderboard"
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-white text-2xl shadow-lg active:bg-amber-100"
+                aria-label="Classement"
+              >
+                🏆
+              </Link>
+              <Link
+                to="/profile"
+                className="flex h-14 w-14 items-center justify-center rounded-full bg-amber-700 text-2xl text-white shadow-lg active:bg-amber-800"
+                aria-label="Profil"
+              >
+                👤
+              </Link>
+            </div>
           </div>
+        }
+      />
+      <Route
+        path="/leaderboard"
+        element={
+          <>
+            <LeaderboardScreen />
+            <BottomNav />
+          </>
         }
       />
       <Route

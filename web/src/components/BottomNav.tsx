@@ -3,6 +3,7 @@ import { useProfile } from '../api/hooks';
 
 const BASE_TABS = [
   { to: '/', label: 'Carte', icon: '🗺️' },
+  { to: '/leaderboard', label: 'Top', icon: '🏆' },
   { to: '/profile', label: 'Profil', icon: '👤' },
 ];
 

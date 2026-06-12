@@ -4,6 +4,7 @@ import type {
   AdminToilet,
   AdminUser,
   CheckinResult,
+  LeaderboardEntry,
   Profile,
   RatingInput,
   ToiletSummary,
@@ -42,6 +43,14 @@ export function useToiletsInBBox(bbox: BBox | null, enabled: boolean) {
     // 5 min, ça absorbe tous les pans/zooms dans le même secteur sans refetch.
     staleTime: 5 * 60_000,
     gcTime: 30 * 60_000,
+  });
+}
+
+export function useLeaderboard(limit = 50) {
+  return useQuery({
+    queryKey: ['toilets', 'leaderboard', limit],
+    queryFn: () => api<LeaderboardEntry[]>(`/toilets/leaderboard?limit=${limit}`),
+    staleTime: 60_000,
   });
 }
 

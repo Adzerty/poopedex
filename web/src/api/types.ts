@@ -68,6 +68,16 @@ export interface AdminToilet {
   createdByUsername: string | null;
 }
 
+export interface LeaderboardEntry {
+  id: string;
+  name: string | null;
+  lat: number;
+  lng: number;
+  avgOverall: number;
+  ratingsCount: number;
+  poopsCount: number;
+}
+
 export interface AdminUser {
   id: string;
   username: string;

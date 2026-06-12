@@ -30,8 +30,8 @@ const MAP_STYLE = import.meta.env.VITE_MAP_STYLE ?? 'https://tiles.openfreemap.o
 
 export function MapScreen() {
   const { position, error: geoError } = useGeolocation();
-  const [searchParams] = useSearchParams();
-  // Cible passée par la vue admin : ?lat&lng[&id] → centre la carte + ouvre la fiche.
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Cible passée par la vue admin / le classement : ?lat&lng[&id] → centre la carte + ouvre la fiche.
   const targetLat = parseFloat(searchParams.get('lat') ?? '');
   const targetLng = parseFloat(searchParams.get('lng') ?? '');
   const targetId = searchParams.get('id');
@@ -97,12 +97,16 @@ export function MapScreen() {
     }
   }, [mapLoaded, position, hasTarget, targetLat, targetLng]);
 
-  // Ouvre automatiquement la fiche de la toilette ciblée par la vue admin.
+  // Ouvre automatiquement la fiche de la toilette ciblée par la vue admin / le classement.
+  // On retire les params d'URL une fois consommés, sinon refermer la fiche déclencherait
+  // une réouverture immédiate (effet relancé tant que `id` est dans l'URL).
   useEffect(() => {
-    if (!targetId || !toilets || selected) return;
+    if (!targetId || !toilets) return;
     const found = toilets.find((t) => t.id === targetId);
-    if (found) setSelected(found);
-  }, [targetId, toilets, selected]);
+    if (!found) return;
+    setSelected(found);
+    setSearchParams({}, { replace: true });
+  }, [targetId, toilets, setSearchParams]);
 
   function onCheckedIn(result: CheckinResult) {
     setSelected(null);

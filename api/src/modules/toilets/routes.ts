@@ -38,6 +38,20 @@ const CreateBody = z.object({
   name: z.string().max(120).optional(),
 });
 
+const LeaderboardQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+});
+
+const LeaderboardEntry = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  lat: z.number(),
+  lng: z.number(),
+  avgOverall: z.number(),
+  ratingsCount: z.number(),
+  poopsCount: z.number(),
+});
+
 const toiletRoutes: FastifyPluginAsync = async (app) => {
   const r = app.withTypeProvider<ZodTypeProvider>();
 
@@ -81,6 +95,47 @@ const toiletRoutes: FastifyPluginAsync = async (app) => {
         avgOverall: row.avg_overall === null ? null : Number(row.avg_overall),
         poopsCount: Number(row.poops_count),
         collected: row.collected,
+      }));
+    },
+  );
+
+  // Classement public des toilettes les mieux notées.
+  // Tri : note moyenne ↓, puis nombre de votants ↓, puis nombre de poops ↓.
+  // On ne liste que les toilettes ayant reçu au moins une note.
+  r.get(
+    '/leaderboard',
+    { schema: { querystring: LeaderboardQuery, response: { 200: z.array(LeaderboardEntry) } } },
+    async (req) => {
+      const { limit } = req.query;
+      const { rows } = await pool.query(
+        `SELECT t.id,
+                t.name,
+                ST_Y(t.location::geometry) AS lat,
+                ST_X(t.location::geometry) AS lng,
+                t.avg_overall,
+                t.ratings_count,
+                t.poops_count
+         FROM toilets t
+         WHERE t.status = 'active'
+           AND t.is_deleted = false
+           AND t.avg_overall IS NOT NULL
+           AND t.ratings_count > 0
+         ORDER BY t.avg_overall DESC,
+                  t.ratings_count DESC,
+                  t.poops_count DESC,
+                  t.id
+         LIMIT $1`,
+        [limit],
+      );
+
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        lat: row.lat,
+        lng: row.lng,
+        avgOverall: Number(row.avg_overall),
+        ratingsCount: Number(row.ratings_count),
+        poopsCount: Number(row.poops_count),
       }));
     },
   );
